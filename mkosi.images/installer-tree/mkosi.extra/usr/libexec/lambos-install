@@ -1,0 +1,6 @@
+#!/bin/bash
+
+INSTALL_IMAGE=/usr/lib/installer/lambos.raw.zst
+TARGET_DISK=${1:-"/dev/vda"}
+
+zstd -o /dev/stdout -d "$INSTALL_IMAGE" | dd of="$TARGET_DISK" bs=4M status=progress conv=fsync oflag=direct
