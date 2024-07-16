@@ -1,13 +1,13 @@
 [Unit]
 Wants=systemd-udev-settle.service
 After=systemd-udev-settle.service
-SuccessAction=reboot-force
-FailureAction=reboot
+SuccessAction=reboot
 
 [Service]
 Type=oneshot
 ExecStart=/usr/libexec/lambos-install
-RemainAfterExit=yes
+PrivateMounts=yes
+PrivateTmp=yes
 
 [Install]
 WantedBy=lambos-installer.service

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# systemd-networkd
+systemctl reenable systemd-networkd
+
+# systemd-resolved
+ln -svf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
