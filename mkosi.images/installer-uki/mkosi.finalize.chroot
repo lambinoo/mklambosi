@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mkdir -pv /usr/lib/installer/
+mkdir -pv /var/local/installer/work/ /var/local/installer/lower/ /var/local/installer/upper/
+chmod -v 700 /var/local/installer/

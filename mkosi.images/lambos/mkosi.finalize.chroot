@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# systemd-networkd
-systemctl reenable systemd-networkd
-
 # systemd-resolved
 ln -svf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+
+# user
+useradd -m lamb -G wheel --shell=/bin/bash
+echo "lamb:lamb" | chpasswd

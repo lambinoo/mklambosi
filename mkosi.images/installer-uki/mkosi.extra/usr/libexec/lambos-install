@@ -1,0 +1,94 @@
+#!/bin/bash
+
+set -- $(cat /proc/cmdline)
+set -eu
+
+declare INSTALLER_PREFIX=/usr/lib/installer/ \
+        TARGET_DISK="/dev/vda"
+
+setup_data() {
+    local part_type=$(jq -r .type <<< "$1") \
+          part_index=$(jq -r '.partno + 1' <<< "$1") \
+          part_uuid=$(jq -r .uuid <<< "$1")
+
+    local part_file="${INSTALLER_PREFIX}/partitions/${part_type}"
+    local part_dest="${TARGET_DISK}${part_index}"
+    
+    echo "Setting partition UUID for ${part_type} partition"
+    sfdisk --part-uuid "${TARGET_DISK}" "${part_index}" "${part_uuid}"
+    
+    echo "Flashing ${part_type} partition (${part_file} -> ${part_dest})"
+    if [[ ! -f "${part_file}" ]]; then
+        echo "    ${part_file} doesn't exist, aborting"
+        exit 1
+    fi
+    
+    until [[ -b "${part_dest}" ]]; do
+        sleep .1
+    done
+
+    dd if="${part_file}" of="${part_dest}" bs=4M status=progress conv=fsync oflag=direct
+}
+
+setup_kernel() {
+    local mount_dir=$(mktemp -d)
+    local dest_dir="${mount_dir}/EFI/BOOT/"
+
+    local efi_file="${INSTALLER_PREFIX}/BOOTX64.EFI"
+
+    mount "${TARGET_DISK}1" "${mount_dir}"
+
+    mkdir -vp "${dest_dir}"
+    cp -v "${efi_file}" "${dest_dir}"
+
+    umount "${mount_dir}"
+}
+
+
+get_cmd_value() {
+    printf "%s" "$1" | cut -d= -f2-
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        lambos.image_prefix=*)
+            INSTALLER_PREFIX=$(get_cmd_value "$1")
+            ;;
+
+        lambos.target=*)
+            TARGET_DISK=$(get_cmd_value "$1")
+            ;;
+
+        *)
+            echo "Ignoring unknown arg: $1"
+            ;;
+    esac
+    shift
+done
+
+# Setup partitions
+echo "=== Wiping target disk ==="
+wipefs --all "${TARGET_DISK}"
+
+echo "=== Flash partition table to target disk ==="
+systemd-repart \
+    --dry-run=no \
+    --empty=allow \
+    --definitions="${INSTALLER_PREFIX}/repart.d/" \
+    --json=pretty \
+    --no-pager \
+    "${TARGET_DISK}"
+
+echo "=== Reloading partitions ==="
+partx -uv "${TARGET_DISK}"
+udevadm trigger -w
+
+echo "=== Write partition data === "
+declare PARTITIONS=()
+readarray PARTITIONS < <(jq -cr '.disk_partitions[] | select(.type != "esp") | select(.partno != null)' "${INSTALLER_PREFIX}/manifest.json")
+
+for part_data in "${PARTITIONS[@]}"; do
+    setup_data "${part_data}"
+done
+
+setup_kernel
