@@ -1,7 +1,7 @@
 [Unit]
 Wants=systemd-udev-settle.service
 After=systemd-udev-settle.service
-# SuccessAction=reboot
+SuccessAction=reboot
 
 [Service]
 Type=oneshot
